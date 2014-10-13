@@ -1,0 +1,33 @@
+# NOTE: These settings can be overridden by environment variables as well, in
+# particular:
+#
+#    PGHOST
+#    PGPORT
+#    PGUSER
+#    PGPASS
+#    PGDATABASE
+
+Default: &defaults
+  user: smallEmail
+  password: smallEmail
+  host: localhost
+  port: 5432
+  database: smallEmail
+  poolsize: 10
+
+Development:
+  <<: *defaults
+
+Testing:
+  database: smallEmail_test
+  <<: *defaults
+
+Staging:
+  database: smallEmail_staging
+  poolsize: 100
+  <<: *defaults
+
+Production:
+  database: smallEmail_production
+  poolsize: 100
+  <<: *defaults
