@@ -14,7 +14,7 @@ import Yesod.Form.Bootstrap3
 -- inclined, or create a single monolithic file.
 getHomeR :: Handler Html
 getHomeR = do
-    (formWidget, formEnctype) <- generateFormPost sampleForm
+    (formWidget, formEnctype) <- generateFormPost inputForm
     let submission = Nothing :: Maybe (Text, Text)
         handlerName = "getHomeR" :: Text
     defaultLayout $ do
@@ -24,7 +24,7 @@ getHomeR = do
 
 postHomeR :: Handler Html
 postHomeR = do
-    ((result, formWidget), formEnctype) <- runFormPost sampleForm
+    ((result, formWidget), formEnctype) <- runFormPost inputForm
     let handlerName = "postHomeR" :: Text
         submission = case result of
             FormSuccess res -> Just res
@@ -35,10 +35,13 @@ postHomeR = do
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
+emailPrompt :: FieldSettings site
 emailPrompt = "What's your email address?"
+
+listPrompt :: FieldSettings site
 listPrompt = "What list do you want to follow?"
 
-sampleForm :: Form (Text, Text)
-sampleForm = renderBootstrap3 BootstrapBasicForm $ (,)
+inputForm :: Form (Text, Text)
+inputForm = renderBootstrap3 BootstrapBasicForm $ (,)
     <$> areq textField (withSmallInput emailPrompt) Nothing
     <*> areq textField (withSmallInput listPrompt) Nothing
