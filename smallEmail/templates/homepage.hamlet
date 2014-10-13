@@ -26,9 +26,9 @@
     This is an example trivial Form. Read the #
     \<a href="http://www.yesodweb.com/book/forms">Forms chapter<span class="glyphicon glyphicon-bookmark"></span></a> #
     on the yesod book to learn more about them.
-    $maybe (info,con) <- submission
+    $maybe (email , list) <- submission
       <div .message .alert .alert-success>
-        Your file's type was <em>#{fileContentType info}</em>. You say it has: <em>#{con}</em>
+        Your email is <em>#{email}</em>. You want to subscribe to: <em>#{list}</em>
     <form method=post action=@{HomeR}#form enctype=#{formEnctype}>
       ^{formWidget}
       <button .btn .btn-primary type="submit">

@@ -15,7 +15,7 @@ import Yesod.Form.Bootstrap3
 getHomeR :: Handler Html
 getHomeR = do
     (formWidget, formEnctype) <- generateFormPost sampleForm
-    let submission = Nothing :: Maybe (FileInfo, Text)
+    let submission = Nothing :: Maybe (Text, Text)
         handlerName = "getHomeR" :: Text
     defaultLayout $ do
         aDomId <- newIdent
@@ -35,7 +35,10 @@ postHomeR = do
         setTitle "Welcome To Yesod!"
         $(widgetFile "homepage")
 
-sampleForm :: Form (FileInfo, Text)
+emailPrompt = "What's your email address?"
+listPrompt = "What list do you want to follow?"
+
+sampleForm :: Form (Text, Text)
 sampleForm = renderBootstrap3 BootstrapBasicForm $ (,)
-    <$> fileAFormReq "Choose a file"
-    <*> areq textField (withSmallInput "What's on the file?") Nothing
+    <$> areq textField (withSmallInput emailPrompt) Nothing
+    <*> areq textField (withSmallInput listPrompt) Nothing
