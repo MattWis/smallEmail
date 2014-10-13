@@ -31,7 +31,7 @@ postHomeR = do
             FormSuccess res -> Just res
             _ -> Nothing
 
-    runSqlite "smallEmail.sqlite3" $ do
+    _ <- ($) runSqlite "smallEmail.sqlite3" $ do
       runMigration migrateAll
       case submission of
         Just (email, list) -> insert $ traceThis (EmailEntry email list)
