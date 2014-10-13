@@ -8,5 +8,9 @@ Email
     user UserId Maybe
     verkey Text Maybe
     UniqueEmail email
+EmailEntry
+    email Text
+    list Text
+    deriving Show
 
  -- By default this file is used in Model.hs (which is imported by Foundation.hs)
