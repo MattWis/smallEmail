@@ -20,7 +20,7 @@ getHomeR = do
         handlerName = "getHomeR" :: Text
     defaultLayout $ do
         aDomId <- newIdent
-        setTitle "Welcome To Yesod!"
+        setTitle "Small Email"
         $(widgetFile "homepage")
 
 postHomeR :: Handler Html
@@ -39,7 +39,7 @@ postHomeR = do
 
     defaultLayout $ do
         aDomId <- newIdent
-        setTitle "Welcome To Yesod!"
+        setTitle "Small Email"
         $(widgetFile "homepage")
 
 traceThis :: (Show a) => a -> a
