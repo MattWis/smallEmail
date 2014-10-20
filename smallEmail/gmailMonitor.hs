@@ -17,7 +17,10 @@ import Control.Monad (liftM)
 import Data.List (isInfixOf)
 import Data.ByteString (ByteString)
 import Control.Monad.IO.Class
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec (parse, manyTill, anyChar, try, string, eof, (<?>), (<|>))
+import Text.Parsec.Prim (ParsecT)
+import Text.Parsec.Error (ParseError)
+import Data.Functor.Identity (Identity)
 
 import Debug.Trace
 traceThis x = trace (show x) x
@@ -35,6 +38,7 @@ to = Address Nothing "luke.s.metz@gmail.com"
 
 main = getNewEmailsForever 3
 
+getNewEmailsForever :: Int -> IO ()
 getNewEmailsForever num = do
   (numMsgs, emails) <- getEmailsAfter num
   print emails
@@ -45,7 +49,7 @@ getNewEmailsForever num = do
   getNewEmailsForever numMsgs
 
 
-{-getEmailsAfter :: Int -> IO (Int, [(String, String)])-}
+getEmailsAfter :: Int -> IO (Int, Either ParseError Content)
 getEmailsAfter numKnown = do
   conn <- connectIMAPSSLWithSettings "imap.gmail.com" cfg
   login conn username password
@@ -59,6 +63,7 @@ getEmailsAfter numKnown = do
   where cfg = defaultSettingsIMAPSSL { sslMaxLineLength = 100000 }
 
 {-fetchEmails :: IMAPConnection -> [UID] -> IO [(String, String)]-}
+fetchEmail :: IMAPConnection -> UID -> IO (Either ParseError Content)
 {-fetchEmails conn [] = return $ Right [[]]-}
 fetchEmail conn message = do
   body <- fetchByString conn message "BODY[]"
@@ -73,6 +78,7 @@ data ContentBody = Multipart [Content] | Text [String] | OtherType [String] deri
 {-parseEmail :: String -> Either ParseError [String]-}
 parseEmail = parse (emailFormat Nothing) "(unknown)"
 
+emailFormat :: Maybe [String] -> ParsecT [Char] u Identity Content
 emailFormat boundary = do
   header <- manyTill line $ try (string "Content-Type: ")
   contentType <- manyTill anyChar $ string "; "
@@ -80,6 +86,7 @@ emailFormat boundary = do
   return body
 
 
+emailContent :: ContentType -> Maybe [String] -> ParsecT [Char] u Identity Content
 emailContent contentType boundary =
   if "multipart" `isInfixOf` contentType
   then do
@@ -93,12 +100,15 @@ emailContent contentType boundary =
     content <- notBoundaryLines boundary
     return $ Content contentType $ OtherType content
 
+multipart :: Maybe [String] -> ParsecT [Char] u Identity ContentBody
 multipart boundary = do
   contents <- manyTill (emailFormat boundary) eof
   return $ Multipart contents
 
+line :: ParsecT [Char] u Identity [Char]
 line = manyTill anyChar eol
 
+notBoundaryLines :: Maybe [String] -> ParsecT [Char] u Identity [[Char]]
 notBoundaryLines boundary = do
   curLine <- line
   if maybeInfix curLine boundary
