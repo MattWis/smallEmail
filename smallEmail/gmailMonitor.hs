@@ -73,53 +73,40 @@ data ContentBody = Multipart [Content] | Text [String] | OtherType [String] deri
 {-parseEmail :: String -> Either ParseError [String]-}
 parseEmail = parse (emailFormat Nothing) "(unknown)"
 
-emailFormat boundary = case boundary of
-  Nothing -> do
-    header <- manyTill line $ try (string "Content-Type: ")
-    contentType <- manyTill anyChar $ string "; "
-    body <- emailContent contentType
-    many line
-    return body
-  Just boundary -> do
-    _ <- manyTill line $ try (string "Content-Type: ") --This shouldn't consume any whole lines
-    contentType <- manyTill anyChar $ string "; "
-    lines <- notBoundaryLines boundary
-    return $ Content contentType $ OtherType lines
+emailFormat boundary = do
+  header <- manyTill line $ try (string "Content-Type: ")
+  contentType <- manyTill anyChar $ string "; "
+  body <- emailContent contentType boundary
+  return body
 
 
-emailContent contentType =
+emailContent contentType boundary =
   if "multipart" `isInfixOf` contentType
   then do
     manyTill anyChar $ try (string "boundary=")
-    boundary <- manyTill anyChar eol
+    thisBoundary <- manyTill anyChar eol
+    newBoundary <- return $ maybe [thisBoundary] (thisBoundary :) boundary
     eol
-    body <- multipart boundary
+    body <- multipart $ Just newBoundary
     return $ Content contentType body
   else do
-    content <- many line
+    content <- notBoundaryLines boundary
     return $ Content contentType $ OtherType content
 
 multipart boundary = do
-  try $ boundaryEnd boundary
-  contents <- manyTill (emailFormat $ Just boundary) eof
+  contents <- manyTill (emailFormat boundary) eof
   return $ Multipart contents
-
-boundaryEnd boundary = do
-  string . traceThis $ ("--" ++ boundary)
-
-onePart boundary = do
-  lines <- notBoundaryLines boundary
-  return $ Content "other" $ OtherType lines
 
 line = manyTill anyChar eol
 
 notBoundaryLines boundary = do
   curLine <- line
-  if boundary `isInfixOf` curLine
+  if maybeInfix curLine boundary
   then return []
-  else do
-    lines <- notBoundaryLines boundary
-    return $ curLine : lines
+  else notBoundaryLines boundary >>= (\lines -> return $ curLine : lines)
+
+maybeInfix :: String -> Maybe [String] -> Bool
+maybeInfix string = maybe False ((any . flip isInfixOf) string)
 
 eol = try (string "\n\r")
   <|> try (string "\r\n")
