@@ -34,10 +34,10 @@ main = getNewEmailsForever 3
 
 getNewEmailsForever num = do
   (numMsgs, emails) <- getEmailsAfter num
-  print emails
+  {-print emails-}
   print numMsgs
 
-  _ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) []) emails
+  {-_ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) []) emails-}
 
   getNewEmailsForever numMsgs
 
@@ -61,6 +61,7 @@ fetchEmails conn messages = do
     body <- fetchByString conn (head messages) "BODY[]"
     envelope <- fetchByString conn (head messages) "ENVELOPE"
     others <- fetchEmails conn (tail messages)
+    (liftIO . putStrLn . snd . head) body
     return ((getSubject envelope, snd . head $ body) : others)
 
 getSubject :: [(String, String)] -> String
