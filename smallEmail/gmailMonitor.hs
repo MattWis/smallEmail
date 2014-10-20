@@ -53,15 +53,15 @@ getEmailsAfter numKnown = do
   select conn "INBOX"
   msgs <- search conn [ALLs]
   let newMessages = drop numKnown msgs
-  list <-  fetchEmails conn newMessages
+  list <- fetchEmail conn (head newMessages)
   logout conn
   return (length msgs, list)
   where cfg = defaultSettingsIMAPSSL { sslMaxLineLength = 100000 }
 
 {-fetchEmails :: IMAPConnection -> [UID] -> IO [(String, String)]-}
 {-fetchEmails conn [] = return $ Right [[]]-}
-fetchEmails conn messages = do
-  body <- fetchByString conn (head messages) "BODY[]"
+fetchEmail conn message = do
+  body <- fetchByString conn message "BODY[]"
   return (parseEmail . snd . head $ body)
 
 data Email = Email Header Content deriving (Eq, Show)
