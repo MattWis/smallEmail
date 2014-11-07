@@ -4,11 +4,11 @@ module ParseEmail
   ( parseEmail
   , flatten
   , getAttachments
-  , Email()
+  , Email(..)
+  , Attachment(..)
   ) where
 
 import ClassyPrelude hiding (try, (<|>))
-import Prelude (tail)
 
 import Text.ParserCombinators.Parsec (parse, manyTill, anyChar, try, string, eof, (<?>), (<|>))
 import Text.Parsec.Prim (ParsecT)
@@ -43,9 +43,13 @@ convertToAttachment content = case content of
     Nothing -> Nothing
     Just firstLine -> if not ("name" `isInfixOf` firstLine)
       then Nothing
-      else let fileData = tail $ dropWhile (/= "") headersAndData
-               headers = takeWhile (/= "") headersAndData
-           in Just $ Attachment contentType headers (concat fileData)
+      else case (toMinLen $ dropWhile (/= "") headersAndData
+                          :: Maybe (MinLen (Succ Zero) [String])) of
+        Nothing -> Nothing
+        Just fileDataAndEmptyLine ->
+           let headers = takeWhile (/= "") headersAndData
+               fileData = concat $ unMinLen $ tailML fileDataAndEmptyLine
+           in Just $ Attachment contentType headers fileData
 
 
 parseEmail :: String -> Either ParseError Email
