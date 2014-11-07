@@ -5,7 +5,7 @@ import Import
 import Yesod.Form.Bootstrap3
     ( BootstrapFormLayout (..), renderBootstrap3, withSmallInput )
 import Database.Persist.Sqlite (runMigration, runSqlite)
-import Debug.Trace (trace)
+import Debug.Trace (traceShowId)
 -- This is a handler function for the GET request method on the HomeR
 -- resource pattern. All of your resource patterns are defined in
 -- config/routes
@@ -34,16 +34,13 @@ postHomeR = do
     _ <- ($) runSqlite "smallEmail.sqlite3" $ do
       runMigration migrateAll
       case submission of
-        Just (email, list) -> insert $ traceThis (EmailEntry email list)
-        Nothing -> insert $ traceThis (EmailEntry "" "") -- Should never happen
+        Just (email, list) -> insert $ traceShowId (EmailEntry email list)
+        Nothing -> insert $ traceShowId (EmailEntry "" "") -- Should never happen
 
     defaultLayout $ do
         aDomId <- newIdent
         setTitle "Small Email"
         $(widgetFile "homepage")
-
-traceThis :: (Show a) => a -> a
-traceThis a = trace (show a) a
 
 emailPrompt :: FieldSettings site
 emailPrompt = "What's your email address?"
