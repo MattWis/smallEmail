@@ -1,22 +1,21 @@
 {-# LANGUAGE TupleSections, OverloadedStrings #-}
 
-import System.IO
 import Network.HaskellNet.IMAP.SSL (connectIMAPSSLWithSettings, defaultSettingsIMAPSSL)
 import Network.HaskellNet.SSL (sslMaxLineLength)
 import Network.HaskellNet.IMAP (login, select, search, list, logout, fetchByString, SearchQuery(ALLs))
 import Network.HaskellNet.IMAP.Connection (IMAPConnection)
 import Network.HaskellNet.IMAP.Types (UID)
+import Network.Mail.Client.Gmail (sendGmail)
+import Network.Mail.Mime (Address(Address))
+
 import Data.Text.Internal.Lazy
 import Data.Text (split)
 import Data.String (fromString)
-import Network.Mail.Client.Gmail (sendGmail)
-import Network.Mail.Mime
 import qualified Data.ByteString.Char8 as B
-import Data.Char
-import Control.Monad (liftM)
-import Data.List (isInfixOf)
 import Data.ByteString (ByteString)
-import Control.Monad.IO.Class
+import Data.List (isInfixOf)
+import Control.Monad (liftM)
+
 import Text.ParserCombinators.Parsec (parse, manyTill, anyChar, try, string, eof, (<?>), (<|>))
 import Text.Parsec.Prim (ParsecT)
 import Text.Parsec.Error (ParseError)
@@ -49,7 +48,7 @@ getNewEmailsForever num = do
   getNewEmailsForever numMsgs
 
 
-getEmailsAfter :: Int -> IO (Int, Either ParseError Content)
+getEmailsAfter :: Int -> IO (Int, [Either ParseError Email])
 getEmailsAfter numKnown = do
   conn <- connectIMAPSSLWithSettings "imap.gmail.com" cfg
   login conn username password
@@ -57,14 +56,12 @@ getEmailsAfter numKnown = do
   select conn "INBOX"
   msgs <- search conn [ALLs]
   let newMessages = drop numKnown msgs
-  list <- fetchEmail conn (head newMessages)
+  list <- mapM (fetchEmail conn) newMessages
   logout conn
   return (length msgs, list)
   where cfg = defaultSettingsIMAPSSL { sslMaxLineLength = 100000 }
 
-{-fetchEmails :: IMAPConnection -> [UID] -> IO [(String, String)]-}
-fetchEmail :: IMAPConnection -> UID -> IO (Either ParseError Content)
-{-fetchEmails conn [] = return $ Right [[]]-}
+fetchEmail :: IMAPConnection -> UID -> IO (Either ParseError Email)
 fetchEmail conn message = do
   body <- fetchByString conn message "BODY[]"
   return (parseEmail . snd . head $ body)
@@ -73,13 +70,20 @@ data Email = Email Header Content deriving (Eq, Show)
 type Header = [String]
 data Content = Content ContentType ContentBody deriving (Eq, Show)
 type ContentType = String
-data ContentBody = Multipart [Content] | Text [String] | OtherType [String] deriving (Eq, Show)
+data ContentBody = Multipart [Content] | Singlepart [String] deriving (Eq, Show)
 
-{-parseEmail :: String -> Either ParseError [String]-}
-parseEmail = parse (emailFormat Nothing) "(unknown)"
+parseEmail :: String -> Either ParseError Email
+parseEmail = parse emailFormat "(unknown)"
 
-emailFormat :: Maybe [String] -> ParsecT [Char] u Identity Content
-emailFormat boundary = do
+emailFormat :: ParsecT [Char] u Identity Email
+emailFormat = do
+  header <- manyTill line $ try (string "Content-Type: ")
+  contentType <- manyTill anyChar $ string "; "
+  body <- emailContent contentType Nothing
+  return $ Email header body
+
+contentFormat :: Maybe [String] -> ParsecT [Char] u Identity Content
+contentFormat boundary = do
   header <- manyTill line $ try (string "Content-Type: ")
   contentType <- manyTill anyChar $ string "; "
   body <- emailContent contentType boundary
@@ -98,11 +102,11 @@ emailContent contentType boundary =
     return $ Content contentType body
   else do
     content <- notBoundaryLines boundary
-    return $ Content contentType $ OtherType content
+    return $ Content contentType $ Singlepart content
 
 multipart :: Maybe [String] -> ParsecT [Char] u Identity ContentBody
 multipart boundary = do
-  contents <- manyTill (emailFormat boundary) eof
+  contents <- manyTill (contentFormat boundary) eof
   return $ Multipart contents
 
 line :: ParsecT [Char] u Identity [Char]
