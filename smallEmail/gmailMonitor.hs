@@ -81,17 +81,21 @@ parseEmail = parse emailFormat "(unknown)"
 
 emailFormat :: ParsecT [Char] u Identity Email
 emailFormat = do
-  header <- manyTill line $ try (string "Content-Type: ")
-  contentType <- manyTill anyChar $ string "; "
+  (header, contentType) <- getHeaders
   body <- emailContent contentType Nothing
   return $ Email header body
 
 contentFormat :: Maybe [String] -> ParsecT [Char] u Identity Content
 contentFormat boundary = do
-  header <- manyTill line $ try (string "Content-Type: ")
-  contentType <- manyTill anyChar $ string "; "
+  (header, contentType) <- getHeaders
   body <- emailContent contentType boundary
   return body
+
+getHeaders :: ParsecT [Char] u Identity ([[Char]], [Char])
+getHeaders = do
+  header <- manyTill line $ try (string "Content-Type: ")
+  contentType <- manyTill anyChar $ string "; "
+  return (header, contentType)
 
 
 emailContent :: ContentType -> Maybe [String] -> ParsecT [Char] u Identity Content
