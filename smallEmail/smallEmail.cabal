@@ -69,8 +69,9 @@ library
                  , wai-logger                    >= 2.2        && < 2.3
                  , mime-mail                     >= 0.4.5      && < 0.4.5.3
                  , smtps-gmail                   >= 1.2.1      && < 1.2.2
-                 , HaskellNet                    >= 0.4        && < 0.4.1
-                 , HaskellNet-SSL                >= 0.2.5.1    && < 0.2.5.2
+                 , HaskellNet                    >= 0.4
+                 , HaskellNet-SSL                >= 0.2.5.1
+                 , classy-prelude                >= 0.9.0
 
     -- see https://github.com/yesodweb/yesod/issues/814
     if !os(windows)

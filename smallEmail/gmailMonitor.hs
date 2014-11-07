@@ -1,5 +1,6 @@
-{-# LANGUAGE TupleSections, OverloadedStrings #-}
+{-# LANGUAGE TupleSections, OverloadedStrings, NoImplicitPrelude #-}
 
+import ClassyPrelude hiding (try, (<|>))
 import Network.HaskellNet.IMAP.SSL (connectIMAPSSLWithSettings, defaultSettingsIMAPSSL)
 import Network.HaskellNet.SSL (sslMaxLineLength)
 import Network.HaskellNet.IMAP (login, select, search, list, logout, fetchByString, SearchQuery(ALLs))
@@ -8,12 +9,10 @@ import Network.HaskellNet.IMAP.Types (UID)
 import Network.Mail.Client.Gmail (sendGmail)
 import Network.Mail.Mime (Address(Address))
 
-import Data.Text.Internal.Lazy
 import Data.Text (split)
 import Data.String (fromString)
 import qualified Data.ByteString.Char8 as B
 import Data.ByteString (ByteString)
-import Data.List (isInfixOf)
 import Control.Monad (liftM)
 
 import Text.ParserCombinators.Parsec (parse, manyTill, anyChar, try, string, eof, (<?>), (<|>))
@@ -64,7 +63,12 @@ getEmailsAfter numKnown = do
 fetchEmail :: IMAPConnection -> UID -> IO (Either ParseError Email)
 fetchEmail conn message = do
   body <- fetchByString conn message "BODY[]"
-  return (parseEmail . snd . head $ body)
+  return (parseEmail $ extractBody body)
+
+
+extractBody body = case headMay body of
+    Just safeBody -> snd safeBody
+    Nothing -> ""
 
 data Email = Email Header Content deriving (Eq, Show)
 type Header = [String]
