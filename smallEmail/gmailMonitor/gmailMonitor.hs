@@ -1,4 +1,8 @@
-{-# LANGUAGE TupleSections, OverloadedStrings, NoImplicitPrelude #-}
+{-# LANGUAGE TupleSections, OverloadedStrings, NoImplicitPrelude, GADTs #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving, MultiParamTypeClasses, QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell, TypeFamilies #-}
+
+import Import (mkMigrate, mkPersist, persistLowerCase, share, sqlSettings, Key(..))
 
 import ClassyPrelude
 import Network.HaskellNet.IMAP.SSL (connectIMAPSSLWithSettings, defaultSettingsIMAPSSL)
@@ -9,16 +13,17 @@ import Network.HaskellNet.IMAP.Types (UID)
 import Network.Mail.Client.Gmail (sendGmail)
 import Network.Mail.Mime (Address(Address))
 
-import Data.Text (split)
-import Data.String (fromString)
-import Control.Monad (liftM)
-
+import Database.Persist.Sqlite (insert, runMigration, runSqlite)
 import Text.Parsec.Error (ParseError)
 
 import ParseEmail
 
-import Debug.Trace
-traceThis x = trace (show x) x
+share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
+AttachedFile
+    extension Text
+    headers Text
+    fileData Text
+|]
 
 -- Double credentials because the incoming and outgoing libs have different
 -- types
@@ -36,13 +41,30 @@ main = getNewEmailsForever 2
 getNewEmailsForever :: Int -> IO ()
 getNewEmailsForever num = do
   (numMsgs, emails) <- getEmailsAfter num
-  print (mapM (liftM (getAttachments . flatten)) emails)
+  attachments <- return . (liftM concat) $ mapM (liftM (getAttachments . flatten)) emails
+
+  print attachments
   print numMsgs
+
+  keys <- infectIO $! insertAttachments attachments
+  print keys
 
   {-_ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) []) emails-}
 
   getNewEmailsForever numMsgs
 
+infectIO :: Either b (IO a) -> IO (Either b a)
+infectIO (Right x) = (liftM Right) x
+infectIO (Left y) = return (Left y)
+
+insertAttachments :: Either ParseError [Attachment] -> Either ParseError (IO [Key AttachedFile])
+insertAttachments = (liftM . (liftM sequence) . map) insertAttachment
+
+insertAttachment :: Attachment -> IO (Key AttachedFile)
+insertAttachment (Attachment extension headers fileData) =
+  runSqlite "../smallEmail.sqlite3" $! do
+    runMigration migrateAll
+    insert (AttachedFile (pack extension) (pack $ intercalate "\n" headers) (pack fileData))
 
 getEmailsAfter :: Int -> IO (Int, [Either ParseError Email])
 getEmailsAfter numKnown = do
