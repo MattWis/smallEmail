@@ -96,8 +96,8 @@ notBoundaryLines :: Maybe [String] -> ParsecT [Char] u Identity [[Char]]
 notBoundaryLines boundary = do
   curLine <- line
   if maybeInfix curLine boundary
-  then return []
-  else notBoundaryLines boundary >>= (\lines -> return $ curLine : lines)
+    then return []
+    else notBoundaryLines boundary >>= (\lines -> return $ curLine : lines)
 
 maybeInfix :: String -> Maybe [String] -> Bool
 maybeInfix string = maybe False ((any . flip isInfixOf) string)

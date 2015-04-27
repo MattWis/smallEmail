@@ -1,4 +1,4 @@
-{-# LANGUAGE TupleSections, OverloadedStrings, NoImplicitPrelude #-}
+{-# LANGUAGE TupleSections, OverloadedStrings, NoImplicitPrelude, GADTs #-}
 
 import ClassyPrelude
 import Network.HaskellNet.IMAP.SSL (connectIMAPSSLWithSettings, defaultSettingsIMAPSSL)
