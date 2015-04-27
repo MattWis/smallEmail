@@ -13,13 +13,11 @@ import Data.Text (split)
 import qualified Data.Text.Internal.Lazy as L
 import Data.String (fromString)
 import Control.Monad (liftM)
+import Control.Concurrent (threadDelay)
 
 import Text.Parsec.Error (ParseError)
 
 import ParseEmail
-
-import Debug.Trace
-traceThis x = trace (show x) x
 
 -- Double credentials because the incoming and outgoing libs have different
 -- types
@@ -27,7 +25,7 @@ username = "olinemailbot@gmail.com"
 password = "haskell!"
 
 name = "olinemailbot" :: L.Text
-passwordT = "haskell!" :: L.Text
+pass = "haskell!" :: L.Text
 
 mailList = Address Nothing "olinemailbot@gmail.com"
 to = Address Nothing "mattwis86@gmail.com"
@@ -40,11 +38,20 @@ getNewEmailsForever num = do
   {-print (mapM (liftM (getAttachments . flatten)) emails)-}
   print numMsgs
   print (map (liftM subject) emails)
-  print (map (liftM (getPart "text/html")) emails)
+  print (map (liftM (getPart "text/plain")) emails)
 
-  {-_ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) [] 10000) emails-}
+  {-_ <- mapM forwardGmail emails-}
+  threadDelay 10000000 --10 seconds
 
   getNewEmailsForever numMsgs
+
+forwardGmail :: Either ParseError Email -> IO()
+forwardGmail (Left x) = do (return ())
+forwardGmail (Right email) = case subject email of
+                             Left x -> do (return ())
+                             Right sub -> let html = getPart "text/plain" email
+                                          in  send (fromString sub) (fromString html)
+  where send sub html = sendGmail name pass mailList [to] [] [] sub html [] 10000000
 
 getEmailsAfter :: Int -> IO (Int, [Either ParseError Email])
 getEmailsAfter numKnown = do
@@ -62,7 +69,7 @@ getEmailsAfter numKnown = do
 fetchEmail :: IMAPConnection -> UID -> IO (Either ParseError Email)
 fetchEmail conn message = do
   body <- fetchByString conn message "BODY[]"
-  return (parseEmail $ extractBody body)
+  return (parseEmail $ (traceShowId . extractBody) body)
 
 
 extractBody body = case headMay body of

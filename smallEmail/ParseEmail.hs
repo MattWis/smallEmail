@@ -19,7 +19,7 @@ import Data.Functor.Identity (Identity)
 
 data Email = Email String Content deriving (Eq, Show)
 data Content = Multipart String [Content]
-             | Singlepart String [String] deriving (Eq, Show)
+             | Singlepart String String deriving (Eq, Show)
 data Attachment = Attachment {
   extension :: String,
   headers :: [String],
@@ -58,14 +58,13 @@ getAttachments = mapMaybe convertToAttachment
 convertToAttachment :: Content -> Maybe Attachment
 convertToAttachment content = case content of
   Multipart contentType contents -> Nothing
-  Singlepart contentType headersAndData -> case headMay headersAndData of
+  Singlepart contentType headersAndData -> case headMay (lines headersAndData) of
     Nothing -> Nothing
     Just firstLine -> if not ("name" `isInfixOf` firstLine)
       then Nothing
-      else let fileData = tail $ dropWhile (/= "") headersAndData
-               headers = takeWhile (/= "") headersAndData
+      else let fileData = tail $ dropWhile (/= "") (lines headersAndData)
+               headers = takeWhile (/= "") (lines headersAndData)
            in Just $ Attachment contentType headers (concat fileData)
-
 
 parseEmail :: String -> Either ParseError Email
 parseEmail = parse emailFormat "(unknown)"
@@ -110,16 +109,23 @@ multipart boundary = do
 line :: ParsecT [Char] u Identity [Char]
 line = manyTill anyChar eol
 
-notBoundaryLines :: Maybe [String] -> ParsecT [Char] u Identity [[Char]]
+--Eats newlines
+notBoundaryLines :: Maybe [String] -> ParsecT [Char] u Identity [Char]
 notBoundaryLines boundary = do
   curLine <- line
   if maybeInfix curLine boundary
-    then return []
-    else notBoundaryLines boundary >>= (\lines -> return $ curLine : lines)
+    then return ""
+    else notBoundaryLines boundary >>= (\lines -> return $ curLine ++ lines)
 
 maybeInfix :: String -> Maybe [String] -> Bool
 maybeInfix string = maybe False ((any . flip isInfixOf) string)
 
+boundaries :: [String] -> ParsecT [Char] u Identity [Char]
+boundaries [] = try (string "hopefully this never matches #HACK aewjfkccnas")
+boundaries (x:xs) = try (string x) <|> boundaries xs
+boundaries [x] = try (string x) <?> "boundary"
+
+eol :: ParsecT [Char] u Identity [Char]
 eol = try (string "\n\r")
   <|> try (string "\r\n")
   <|> string "\n"
