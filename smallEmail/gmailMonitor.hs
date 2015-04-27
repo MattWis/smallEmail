@@ -10,6 +10,7 @@ import Network.Mail.Client.Gmail (sendGmail)
 import Network.Mail.Mime (Address(Address))
 
 import Data.Text (split)
+import qualified Data.Text.Internal.Lazy as L
 import Data.String (fromString)
 import Control.Monad (liftM)
 
@@ -25,24 +26,25 @@ traceThis x = trace (show x) x
 username = "olinemailbot@gmail.com"
 password = "haskell!"
 
-name = "olinemailbot" :: Text
-passwordT = "haskell!" :: Text
+name = "olinemailbot" :: L.Text
+passwordT = "haskell!" :: L.Text
 
 mailList = Address Nothing "olinemailbot@gmail.com"
-to = Address Nothing "luke.s.metz@gmail.com"
+to = Address Nothing "mattwis86@gmail.com"
 
 main = getNewEmailsForever 2
 
 getNewEmailsForever :: Int -> IO ()
 getNewEmailsForever num = do
   (numMsgs, emails) <- getEmailsAfter num
-  print (mapM (liftM (getAttachments . flatten)) emails)
+  {-print (mapM (liftM (getAttachments . flatten)) emails)-}
   print numMsgs
+  print (map (liftM subject) emails)
+  print (map (liftM (getPart "text/html")) emails)
 
-  {-_ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) []) emails-}
+  {-_ <- mapM_ (\(x, y) -> sendGmail name passwordT mailList [to] [] [] (fromString x) (fromString y) [] 10000) emails-}
 
   getNewEmailsForever numMsgs
-
 
 getEmailsAfter :: Int -> IO (Int, [Either ParseError Email])
 getEmailsAfter numKnown = do

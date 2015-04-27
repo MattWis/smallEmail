@@ -4,7 +4,9 @@ module ParseEmail
   ( parseEmail
   , flatten
   , getAttachments
-  , Email()
+  , getPart
+  , subject
+  , Email(..)
   ) where
 
 import ClassyPrelude hiding (try, (<|>))
@@ -15,7 +17,7 @@ import Text.Parsec.Prim (ParsecT)
 import Text.Parsec.Error (ParseError)
 import Data.Functor.Identity (Identity)
 
-data Email = Email [String] Content deriving (Eq, Show)
+data Email = Email String Content deriving (Eq, Show)
 data Content = Multipart String [Content]
              | Singlepart String [String] deriving (Eq, Show)
 data Attachment = Attachment {
@@ -24,6 +26,23 @@ data Attachment = Attachment {
   fileData :: String
 } deriving (Eq, Ord, Show)
 
+subject :: Email -> Either ParseError String
+subject (Email header content) = parse subjectFormat "(unknown)" header
+
+subjectFormat :: ParsecT [Char] u Identity String
+subjectFormat = do
+  manyTill line $ try (string "Subject: ")
+  subject <- manyTill anyChar eol
+  return subject
+
+getContentPart :: String -> Content -> String
+getContentPart part (Multipart x contents) = concatMap (getContentPart part) contents
+getContentPart part (Singlepart contentType lines) = if (part == contentType)
+                                                       then show lines
+                                                       else ""
+
+getPart :: String -> Email -> String
+getPart partName (Email x contents) = getContentPart partName contents
 
 flatten :: Email -> [Content]
 flatten (Email header content) = flattenContent content
@@ -63,12 +82,11 @@ contentFormat boundary = do
   body <- emailContent contentType boundary
   return body
 
-getHeaders :: ParsecT [Char] u Identity ([[Char]], [Char])
+getHeaders :: ParsecT [Char] u Identity ([Char], [Char])
 getHeaders = do
-  header <- manyTill line $ try (string "Content-Type: ")
+  header <- manyTill anyChar $ try (string "Content-Type: ")
   contentType <- manyTill anyChar $ string "; "
   return (header, contentType)
-
 
 emailContent :: String -> Maybe [String] -> ParsecT [Char] u Identity Content
 emailContent contentType boundary =
