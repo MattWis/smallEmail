@@ -10,7 +10,7 @@ build-type:          Simple
 cabal-version:       >=1.8
 
 executable smallEmail
-  main-is:             gmailMonitor.hs
+  main-is:             Test.hs
   -- other-modules:
   build-depends:       base
                      , wai
@@ -37,3 +37,4 @@ executable smallEmail
                      , HaskellNet-SSL
                      , classy-prelude
                      , parsec
+                     , hspec
